@@ -1,0 +1,7 @@
+secrets_local.py
+chroma_db/
+__pycache__/
+*.pt
+fashion_products.csv
+fashion_products.json
+models/
