@@ -25,8 +25,44 @@ CLASS_NAME_KO = {
 }
 
 
+def _dominant_color_from_pixels(pixels):
+    """픽셀 배열에서 k-means로 대표색 추출 (군집 3개 중 가장 큰 것)"""
+    if len(pixels) == 0:
+        return None
+    pixels = pixels.reshape(-1, 3).astype(np.float32)
+    if len(pixels) < 32:                       # 군집화하기엔 표본 부족 → 평균색
+        return pixels.mean(axis=0).astype(int)
+    if len(pixels) > 4096:                     # 속도용 다운샘플
+        pixels = pixels[::len(pixels) // 4096 + 1]
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+    _, labels, centers = cv2.kmeans(pixels, 3, None, criteria, 3, cv2.KMEANS_PP_CENTERS)
+    counts = np.bincount(labels.flatten())
+    return centers[np.argmax(counts)].astype(int)   # (R, G, B)
+
+
+def extract_dominant_color_masked(image, polygon):
+    """seg 마스크(폴리곤) 안쪽 = 옷 픽셀만으로 주요 색상 추출
+
+    bbox 방식과 달리 배경/피부 픽셀이 섞이지 않아 색상 정확도가 높다.
+    polygon은 원본 이미지 좌표계의 외곽선 (ultralytics masks.xy)
+    """
+    if polygon is None or len(polygon) < 3:
+        return None
+    img = np.array(image)
+    mask = np.zeros(img.shape[:2], np.uint8)
+    cv2.fillPoly(mask, [polygon.astype(np.int32)], 1)
+    # 마스크 경계를 살짝 깎아 배경이 섞이는 가장자리 픽셀 제거
+    eroded = cv2.erode(mask, np.ones((5, 5), np.uint8))
+    pixels = img[eroded == 1]
+    if len(pixels) < 32:                       # 깎았더니 너무 작으면 원래 마스크로
+        pixels = img[mask == 1]
+    if len(pixels) < 32:
+        return None
+    return _dominant_color_from_pixels(pixels)
+
+
 def extract_dominant_color(image, box):
-    """탐지 영역(bbox) 중앙부에서 주요 색상(RGB) 추출"""
+    """(폴백) 탐지 영역(bbox) 중앙부에서 주요 색상 추출 — 마스크가 없을 때 사용"""
     x1, y1, x2, y2 = [int(v) for v in box]
     img = np.array(image)                      # PIL(RGB) -> numpy
     crop = img[y1:y2, x1:x2]
@@ -38,12 +74,7 @@ def extract_dominant_color(image, box):
     if crop.size == 0:
         return None
     crop = cv2.resize(crop, (64, 64))          # 속도용 다운샘플
-    # k-means로 대표색 3개 뽑아 가장 큰 군집을 주요 색으로
-    pixels = crop.reshape(-1, 3).astype(np.float32)
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    _, labels, centers = cv2.kmeans(pixels, 3, None, criteria, 3, cv2.KMEANS_PP_CENTERS)
-    counts = np.bincount(labels.flatten())
-    return centers[np.argmax(counts)].astype(int)   # (R, G, B)
+    return _dominant_color_from_pixels(crop)
 
 
 def rgb_to_korean_color(rgb):
@@ -94,7 +125,8 @@ def detect_fashion_objects(image):
         boxes = r.boxes
         if boxes is None:
             continue
-        for box in boxes:
+        masks = r.masks   # seg 모델이 주는 마스크 (박스와 같은 순서)
+        for i, box in enumerate(boxes):
             x1, y1, x2, y2 = box.xyxy[0].tolist()
             conf = box.conf[0].item()
             if conf < DETECTION_CONF_THRESHOLD:
@@ -103,10 +135,13 @@ def detect_fashion_objects(image):
             cls = int(box.cls[0].item())
             class_name = registry.yolo.names[cls]
 
-            # 탐지 영역의 주요 색상 추출 → "빨간 반팔 셔츠" 형태
-            color_name = rgb_to_korean_color(
-                extract_dominant_color(image, (x1, y1, x2, y2))
-            )
+            # 옷 영역(seg 마스크) 픽셀만으로 색상 추출 → "빨간 반팔 셔츠" 형태
+            rgb = None
+            if masks is not None and i < len(masks.xy):
+                rgb = extract_dominant_color_masked(image, masks.xy[i])
+            if rgb is None:   # 마스크가 없거나 너무 작으면 bbox 방식으로 폴백
+                rgb = extract_dominant_color(image, (x1, y1, x2, y2))
+            color_name = rgb_to_korean_color(rgb)
             class_ko = CLASS_NAME_KO.get(class_name, class_name)
             item_label = f"{color_name} {class_ko}".strip()
             print(f"탐지된 아이템: {item_label} (신뢰도: {conf:.2f})")
