@@ -1,16 +1,30 @@
-# AI 쇼핑 어시스턴트 설치 및 실행 가이드
+# AI 쇼핑 어시스턴트 프로젝트 ver2.0
 
 ## 프로젝트 구조
 ```
-ai-shopping-assistant/
-├── app.py                 # 메인 애플리케이션
-├── config.py             # 환경 설정
-├── utils.py             # 유틸리티 함수 (토큰 관리 등)
-├── crawl_products.py     # 상품 크롤링
-├── requirements.txt      # 패키지 목록
-├── chroma_db/           # 벡터 DB 저장소
-├── models/              # 모델 캐시
-├── fashion_products.csv # 크롤링 데이터 (크롤러 실행 시)
+fashion-ai-assistant/
+├── app.py                 # 엔트리포인트 (모델 로드 + 서버 실행)
+├── config.py              # 환경 설정
+├── utils.py               # 유틸리티 함수 (토큰 관리 등)
+├── crawl_products.py      # 상품 크롤링
+├── core/
+│   ├── models.py          # AI 모델 로딩/보관 (ModelRegistry)
+│   └── state.py           # 세션 상태 (대화 히스토리, 검색 횟수)
+├── services/
+│   ├── detection.py       # YOLO 패션 아이템 탐지 + 색상 인식
+│   ├── vision.py          # CLIP 이미지 특징 추출/유사도 검색
+│   ├── products.py        # 네이버 쇼핑 API 상품 검색
+│   ├── vectorstore.py     # ChromaDB 상품 벡터스토어
+│   ├── query.py           # 쿼리 파싱 (키워드/가격 조건)
+│   ├── llm.py             # LLM 응답 생성
+│   └── assistant.py       # 이미지/채팅 처리 오케스트레이션
+├── ui/
+│   ├── formatters.py      # 상품 HTML/텍스트 포맷팅
+│   └── interface.py       # Gradio 화면 구성
+├── requirements.txt       # 패키지 목록
+├── chroma_db/             # 벡터 DB 저장소
+├── models/                # 모델 캐시
+├── fashion_products.csv   # 크롤링 데이터 (크롤러 실행 시)
 └── fashion_products.json
 ```
 

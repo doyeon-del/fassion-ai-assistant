@@ -4,7 +4,6 @@ AI 쇼핑 어시스턴트 유틸리티 모듈
 토큰 관리 및 기타 유틸리티 함수들
 """
 
-import torch
 from typing import List, Dict, Tuple
 
 

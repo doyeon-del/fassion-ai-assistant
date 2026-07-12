@@ -28,6 +28,11 @@ MAX_SEARCH_COUNT = 10  # 최대 API 검색 횟수
 SEARCH_DISPLAY_COUNT = 10  # 한 번에 가져올 상품 수
 VECTOR_SEARCH_K = 5  # 벡터 스토어에서 검색할 문서 수
 
+# 탐지/CLIP 설정
+DETECTION_CONF_THRESHOLD = 0.5  # YOLO 탐지 신뢰도 임계값
+CLIP_SAVE_MAX_ITEMS = 6  # CLIP 벡터로 저장할 상품 이미지 수
+CLIP_IMAGE_TOP_K = 3  # 업로드 이미지와 유사도 검색할 상품 수
+
 # 토큰 관리 설정
 MAX_CONTEXT_TOKENS = 2048  # 최대 컨텍스트 토큰 수
 MAX_GENERATION_TOKENS = 512  # 최대 생성 토큰 수
