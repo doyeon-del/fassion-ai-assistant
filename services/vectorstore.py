@@ -85,7 +85,25 @@ def _meta_to_product(meta):
     }
 
 
-def search_from_vectorstore(query, k=SEARCH_DISPLAY_COUNT):
-    """벡터 스토어에서 유사한 상품을 검색합니다."""
-    docs = vector_store.similarity_search(query, k=k)
-    return [_meta_to_product(doc.metadata) for doc in docs if doc.metadata]
+def search_from_vectorstore(query, k=SEARCH_DISPLAY_COUNT, max_distance=None):
+    """벡터 스토어에서 유사한 상품을 검색합니다. (관련도 점수 기반 필터링)
+
+    Args:
+        query: 검색어
+        k: 가져올 후보 수
+        max_distance: 이 거리보다 먼 결과는 제외 (None이면 필터 없음).
+                      cosine 거리는 0~2, 낮을수록 유사.
+    """
+    scored = vector_store.similarity_search_with_score(query, k=k)
+    if scored:   # 관련도를 콘솔에 찍어 검색 품질을 눈으로 확인
+        print("[RAG] 검색 관련도(거리, 낮을수록 유사): "
+              + ", ".join(f"{d:.3f}" for _, d in scored))
+
+    products = []
+    for doc, distance in scored:
+        if not doc.metadata:
+            continue
+        if max_distance is not None and distance > max_distance:
+            continue   # 관련도가 낮은 결과는 LLM 컨텍스트를 오염시키므로 제외
+        products.append(_meta_to_product(doc.metadata))
+    return products

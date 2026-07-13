@@ -7,7 +7,7 @@
 import traceback
 
 from config import (CLIP_IMAGE_TOP_K, MAX_CONTEXT_TOKENS, MAX_SEARCH_COUNT,
-                    VECTOR_SEARCH_K)
+                    RAG_MAX_DISTANCE, VECTOR_SEARCH_K)
 from core.models import registry
 from core.state import state
 from services import detection, llm, products, query, vectorstore, vision
@@ -111,15 +111,16 @@ def chat_response(message, history):
             found = query.filter_by_price(found, pmin, pmax)   # 예산 필터 + 가격순 정렬
         vectorstore.save_products_to_vectorstore(found)
 
-        search_results = format_product_list(found)
         html_output = format_product_html(found)
-        response = llm.generate_response_with_context(state.conversation_history, search_results)
+        # LLM에는 상품 리스트를 넘기고, 컨텍스트 구성은 llm 모듈이 담당 (관심사 분리)
+        response = llm.generate_response_with_context(state.conversation_history, found)
         if found:
-            response += f"\n\n{search_results}"
+            response += f"\n\n{format_product_list(found)}"
     else:
-        # 저장해둔 벡터 DB에서 상품 검색
+        # 저장해둔 벡터 DB에서 상품 검색 (관련도 낮은 결과는 필터링)
         print(f'\n벡터 DB 검색 : {keyword or message}\n')
-        found = vectorstore.search_from_vectorstore(keyword or message, k=VECTOR_SEARCH_K)
+        found = vectorstore.search_from_vectorstore(
+            keyword or message, k=VECTOR_SEARCH_K, max_distance=RAG_MAX_DISTANCE)
         # CLIP 크로스모달: 한국어 설명 → 상품 이미지 검색 (색·형태가 맞는 것 우선 배치)
         clip_found = vision.search_by_text_clip(keyword or message, k=CLIP_IMAGE_TOP_K)
         if clip_found:
@@ -128,11 +129,7 @@ def chat_response(message, history):
             found = query.filter_by_price(found, pmin, pmax)
 
         html_output = format_product_html(found)
-        if found:
-            search_results = format_product_list(found)
-            response = llm.generate_response_with_context(state.conversation_history, search_results)
-        else:
-            response = llm.generate_response_with_context(state.conversation_history)
+        response = llm.generate_response_with_context(state.conversation_history, found)
 
     # 응답을 대화 히스토리에 추가
     state.conversation_history, _ = token_manager.manage_conversation_history(

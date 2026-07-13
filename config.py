@@ -33,6 +33,12 @@ DETECTION_CONF_THRESHOLD = 0.5  # YOLO 탐지 신뢰도 임계값
 CLIP_SAVE_MAX_ITEMS = 6  # CLIP 벡터로 저장할 상품 이미지 수
 CLIP_IMAGE_TOP_K = 3  # 업로드 이미지와 유사도 검색할 상품 수
 
+# RAG / LLM 생성 설정
+LLM_TEMPERATURE = 0.3  # 사실 기반 답변용 낮은 온도 (창의성↓ 충실도↑)
+RAG_CONTEXT_MAX_ITEMS = 5  # LLM 컨텍스트에 넣을 최대 상품 수
+RAG_MAX_DISTANCE = 0.75  # 이 거리보다 먼(덜 유사한) 검색 결과는 제외 (cosine 거리 0~2, 낮을수록 유사)
+                         # ko-sroberta 기준 관련 상품 ~0.5, 무관 상품 ~0.8+ 이라 그 사이로 설정
+
 # 토큰 관리 설정
 MAX_CONTEXT_TOKENS = 2048  # 최대 컨텍스트 토큰 수
 MAX_GENERATION_TOKENS = 512  # 최대 생성 토큰 수
