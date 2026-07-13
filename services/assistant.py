@@ -120,6 +120,10 @@ def chat_response(message, history):
         # 저장해둔 벡터 DB에서 상품 검색
         print(f'\n벡터 DB 검색 : {keyword or message}\n')
         found = vectorstore.search_from_vectorstore(keyword or message, k=VECTOR_SEARCH_K)
+        # CLIP 크로스모달: 한국어 설명 → 상품 이미지 검색 (색·형태가 맞는 것 우선 배치)
+        clip_found = vision.search_by_text_clip(keyword or message, k=CLIP_IMAGE_TOP_K)
+        if clip_found:
+            found = vision.merge_products(clip_found, found)
         if has_price:
             found = query.filter_by_price(found, pmin, pmax)
 
